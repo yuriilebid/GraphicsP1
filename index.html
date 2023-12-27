@@ -5,7 +5,7 @@
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
 
 
-    <title>PA#1</title>
+    <title>PA#2</title>
     <style>
         body {
             background-color: #EEEEEE;
@@ -34,6 +34,20 @@
     <input type="range" name="a" id="a" min='0.1' max="2" step="0.1" value="1" onchange="updateFigure()"><br>
     <label for="b">value of "b" parameter</label>
     <input type="range" name="b" id="b" min='0.1' max="2" step="0.1" value="1" onchange="updateFigure()"><br>
+    <label for="diff">Diffuse component of color</label>
+    <input type="color" name="diff" id="diff" value="#ffff00"><br>
+    <label for="ambi">Ambient component of color</label>
+    <input type="color" name="ambi" id="ambi" value="#0f0000"><br>
+    <label for="spec">Specular component of color</label>
+    <input type="color" name="spec" id="spec" value="#ffffff"><br>
+    <h3>Direction of light</h3>
+    <label for="x">X</label>
+    <input type="range" name="x" id="x" min='-1' max="1" step="0.1" value="1"><br>
+    <label for="y">Y</label>
+    <input type="range" name="y" id="y" min='-1' max="1" step="0.1" value="1"><br>
+    <label for="z">Z</label>
+    <input type="range" name="z" id="z" min='-1' max="1" step="0.1" value="1"><br>
+
 
     <div id="canvas-holder">
         <canvas width="600" height="600" id="webglcanvas" style="background-color:red"></canvas>

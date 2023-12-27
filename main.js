@@ -14,6 +14,7 @@ function deg2rad(angle) {
 function Model(name) {
     this.name = name;
     this.iVertexBuffer = gl.createBuffer();
+    this.iVertexNormalBuffer = gl.createBuffer();
     this.count = 0;
 
     this.BufferData = function (vertices) {
@@ -23,14 +24,22 @@ function Model(name) {
 
         this.count = vertices.length / 3;
     }
+    this.BufferNormalData = function (normals) {
+
+        gl.bindBuffer(gl.ARRAY_BUFFER, this.iVertexNormalBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(normals), gl.STREAM_DRAW);
+    }
 
     this.Draw = function () {
 
         gl.bindBuffer(gl.ARRAY_BUFFER, this.iVertexBuffer);
         gl.vertexAttribPointer(shProgram.iAttribVertex, 3, gl.FLOAT, false, 0, 0);
         gl.enableVertexAttribArray(shProgram.iAttribVertex);
+        gl.bindBuffer(gl.ARRAY_BUFFER, this.iVertexNormalBuffer);
+        gl.vertexAttribPointer(shProgram.iAttribNormalVertex, 3, gl.FLOAT, false, 0, 0);
+        gl.enableVertexAttribArray(shProgram.iAttribNormalVertex);
 
-        gl.drawArrays(gl.LINE_STRIP, 0, this.count);
+        gl.drawArrays(gl.TRIANGLES, 0, this.count);
     }
 }
 
@@ -43,6 +52,7 @@ function ShaderProgram(name, program) {
 
     // Location of the attribute variable in the shader program.
     this.iAttribVertex = -1;
+    this.iAttribNormalVertex = -1;
     // Location of the uniform specifying a color for the primitive.
     this.iColor = -1;
     // Location of the uniform matrix representing the combined transformation.
@@ -77,13 +87,37 @@ function draw() {
     /* Multiply the projection matrix times the modelview matrix to give the
        combined transformation matrix, and send that to the shader program. */
     let modelViewProjection = m4.multiply(projection, matAccum1);
+    let normalMatrix = m4.identity();
+    m4.inverse(modelView, normalMatrix);
+    normalMatrix = m4.transpose(normalMatrix);
 
     gl.uniformMatrix4fv(shProgram.iModelViewProjectionMatrix, false, modelViewProjection);
+    gl.uniformMatrix4fv(shProgram.iNormalMatrix, false, normalMatrix);
 
     /* Draw the six faces of a cube, with different colors. */
     gl.uniform4fv(shProgram.iColor, [1, 1, 0, 1]);
+    gl.uniform3fv(shProgram.iLightDir, [
+        parseFloat(document.getElementById('x').value),
+        parseFloat(document.getElementById('y').value),
+        parseFloat(document.getElementById('z').value),
+    ]);
 
+    gl.uniform3fv(shProgram.iDiffuseColor,
+        hexToRgb(document.getElementById('diff').value));
+    gl.uniform3fv(shProgram.iAmbientColor,
+        hexToRgb(document.getElementById('ambi').value));
+    gl.uniform3fv(shProgram.iSpecularColor,
+        hexToRgb(document.getElementById('spec').value));
     surface.Draw();
+}
+
+function hexToRgb(hex) {
+    var result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+    return [
+        parseInt(result[1], 16) / 255,
+        parseInt(result[2], 16) / 255,
+        parseInt(result[3], 16) / 255
+    ]
 }
 
 function get(u, v, a, b) {
@@ -92,16 +126,45 @@ function get(u, v, a, b) {
     const z = Math.cos(u);
     return [x, y, z]
 }
+function facetAverage(u, v, a, b) {
+    const steps = 30;
+    const uStep = (1 / steps) * Math.PI;
+    const vStep = (1 / steps) * Math.PI * 2;
+    let v0 = get(u, v, a, b);
+    let v1 = get(u + uStep, v, a, b);
+    let v2 = get(u, v + vStep, a, b);
+    let v3 = get(u - uStep, v + vStep, a, b);
+    let v4 = get(u - uStep, v, a, b);
+    let v5 = get(u - uStep, v - vStep, a, b);
+    let v6 = get(u, v - vStep, a, b);
+    let v01 = m4.subtractVectors(v1, v0)
+    let v02 = m4.subtractVectors(v2, v0)
+    let v03 = m4.subtractVectors(v3, v0)
+    let v04 = m4.subtractVectors(v4, v0)
+    let v05 = m4.subtractVectors(v5, v0)
+    let v06 = m4.subtractVectors(v6, v0)
+    let n1 = m4.normalize(m4.cross(v01, v02))
+    let n2 = m4.normalize(m4.cross(v02, v03))
+    let n3 = m4.normalize(m4.cross(v03, v04))
+    let n4 = m4.normalize(m4.cross(v04, v05))
+    let n5 = m4.normalize(m4.cross(v05, v06))
+    let n6 = m4.normalize(m4.cross(v06, v01))
+    let n = [(n1[0] + n2[0] + n3[0] + n4[0] + n5[0] + n6[0]) / 6.0,
+    (n1[1] + n2[1] + n3[1] + n4[1] + n5[1] + n6[1]) / 6.0,
+    (n1[2] + n2[2] + n3[2] + n4[2] + n5[2] + n6[2]) / 6.0]
+    n = m4.normalize(n);
+    return n;
+}
 
 function updateFigure() {
     surface.BufferData(CreateSurfaceData());
+    surface.BufferNormalData(CreateSurfaceNormalData());
 }
 
 function drawing() {
     draw()
     window.requestAnimationFrame(drawing)
 }
-
 
 
 function CreateSurfaceData() {
@@ -112,19 +175,48 @@ function CreateSurfaceData() {
     const stepsV = parseInt(document.getElementById('vSteps').value);
     for (let i = 0; i <= stepsU; i++) {
         const u = (i / stepsU) * Math.PI;
+        const uStep = (1 / stepsU) * Math.PI;
         for (let j = 0; j <= stepsV; j++) {
             const v = (j / stepsV) * Math.PI * 2;
+            const vStep = (1 / stepsV) * Math.PI * 2;
             vertexList.push(...get(u, v, a, b));
-        }
-    }
-    for (let i = 0; i <= stepsV; i++) {
-        const v = (i / stepsV) * Math.PI * 2;
-        for (let j = 0; j <= stepsU; j++) {
-            const u = (j / stepsU) * Math.PI;
-            vertexList.push(...get(u, v, a, b));
+            vertexList.push(...get(u + uStep, v, a, b));
+            vertexList.push(...get(u, v + vStep, a, b));
+            vertexList.push(...get(u, v + vStep, a, b));
+            vertexList.push(...get(u + uStep, v, a, b));
+            vertexList.push(...get(u + uStep, v + vStep, a, b));
         }
     }
     return vertexList;
+}
+function CreateSurfaceNormalData() {
+    let normalList = [];
+    const a = parseFloat(document.getElementById('a').value);
+    const b = parseFloat(document.getElementById('b').value);
+    const stepsU = parseInt(document.getElementById('uSteps').value);
+    const stepsV = parseInt(document.getElementById('vSteps').value);
+    for (let i = 0; i <= stepsU; i++) {
+        const u = (i / stepsU) * Math.PI;
+        const uStep = (1 / stepsU) * Math.PI;
+        for (let j = 0; j <= stepsV; j++) {
+            const v = (j / stepsV) * Math.PI * 2;
+            const vStep = (1 / stepsV) * Math.PI * 2;
+            let n = facetAverage(u, v, a, b);
+            normalList.push(...n);
+            n = facetAverage(u + uStep, v, a, b);
+            normalList.push(...n);
+            n = facetAverage(u, v + vStep, a, b);
+            normalList.push(...n);
+            n = facetAverage(u, v + vStep, a, b);
+            normalList.push(...n);
+            n = facetAverage(u + uStep, v, a, b);
+            normalList.push(...n);
+            n = facetAverage(u + uStep, v + vStep, a, b);
+            normalList.push(...n);
+        }
+    }
+
+    return normalList;
 }
 
 
@@ -138,11 +230,18 @@ function initGL() {
     shProgram.Use();
 
     shProgram.iAttribVertex = gl.getAttribLocation(prog, "vertex");
+    shProgram.iAttribNormalVertex = gl.getAttribLocation(prog, "normal");
     shProgram.iModelViewProjectionMatrix = gl.getUniformLocation(prog, "ModelViewProjectionMatrix");
+    shProgram.iNormalMatrix = gl.getUniformLocation(prog, "NormalMatrix");
     shProgram.iColor = gl.getUniformLocation(prog, "color");
+    shProgram.iDiffuseColor = gl.getUniformLocation(prog, "diffuseColor");
+    shProgram.iAmbientColor = gl.getUniformLocation(prog, "ambientColor");
+    shProgram.iSpecularColor = gl.getUniformLocation(prog, "specularColor");
+    shProgram.iLightDir = gl.getUniformLocation(prog, "lightDir");
 
     surface = new Model('Surface');
     surface.BufferData(CreateSurfaceData());
+    surface.BufferNormalData(CreateSurfaceNormalData());
 
     gl.enable(gl.DEPTH_TEST);
 }
