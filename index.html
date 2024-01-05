@@ -5,7 +5,7 @@
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
 
 
-    <title>PA#3</title>
+    <title>CGW</title>
     <style>
         body {
             background-color: #EEEEEE;
@@ -25,7 +25,8 @@
 
     <p id="message">Drag your mouse on the cube to rotate it.<br>
         (On a touch screen, you can use your finger.)</p>
-
+    <label for="angle">Angle</label>
+    <input type="range" name="angle" id="angle" min="0" max="3.14" step="0.02" value="0"><br>
     <label for="uSteps">number of u steps</label>
     <input type="range" name="uSteps" id="uSteps" min='5' max="100" step="1" value="50" onchange="updateFigure()"><br>
     <label for="vSteps">number of v steps</label>
@@ -34,13 +35,8 @@
     <input type="range" name="a" id="a" min='0.1' max="2" step="0.1" value="1" onchange="updateFigure()"><br>
     <label for="b">value of "b" parameter</label>
     <input type="range" name="b" id="b" min='0.1' max="2" step="0.1" value="1" onchange="updateFigure()"><br>
-    <label for="diff">Diffuse component of color</label>
-    <input type="color" name="diff" id="diff" value="#ffff00"><br>
-    <label for="ambi">Ambient component of color</label>
-    <input type="color" name="ambi" id="ambi" value="#0f0000"><br>
-    <label for="spec">Specular component of color</label>
-    <input type="color" name="spec" id="spec" value="#ffffff"><br>
-
+    <label for="c">color of point</label>
+    <input type="color" name="c" id="c" value="#ff0000">
 
     <div id="canvas-holder">
         <canvas width="600" height="600" id="webglcanvas" style="background-color:red"></canvas>
